@@ -136,7 +136,7 @@ has_amount(_Key, #cell{amt = Amt}) ->
     Amt > 0.
 
 cycle_time() ->
-    {ok, CycleTime} = application:get_env(erl_ws, cycle_time),
+    {ok, CycleTime} = application:get_env(erl_boids, cycle_time),
     CycleTime.
 
 %% gen_server

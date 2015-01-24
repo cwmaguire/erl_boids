@@ -1,4 +1,4 @@
-{application, erl_ws, [
+{application, erl_boids, [
 	{description, ""},
 	{vsn, "0.1.0"},
 	{id, "git"},
@@ -10,6 +10,6 @@
     cowboy,
     jsx
 	]},
-	{mod, {erl_ws_app, []}},
+	{mod, {erl_boids_app, []}},
 	{env, [{cycle_time, 50}]}
 ]}.

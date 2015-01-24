@@ -116,5 +116,5 @@ rand_color_elem(X) ->
     random:uniform(X).
 
 cycle_time() ->
-    {ok, CycleTime} = application:get_env(erl_ws, cycle_time),
+    {ok, CycleTime} = application:get_env(erl_boids, cycle_time),
     CycleTime.

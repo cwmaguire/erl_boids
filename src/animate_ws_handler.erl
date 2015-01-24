@@ -47,7 +47,7 @@ websocket_init(_Type, Req, _Opts) ->
             io:format("Subprotocols found: ~p~n", [Subprotocols]),
             Req2
     end,
-    _ = supervisor:start_child(erl_ws_sup, [self()]),
+    _ = supervisor:start_child(erl_boids_sup, [self()]),
     io:format("Websocket handler init (~p)~n", [self()]),
     {ok, Req3, #state{}}.
 

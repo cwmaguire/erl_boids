@@ -132,5 +132,5 @@ terminate(_Reason, _State) ->
     ok.
 
 cycle_time() ->
-    {ok, CycleTime} = application:get_env(erl_ws, cycle_time),
+    {ok, CycleTime} = application:get_env(erl_boids, cycle_time),
     CycleTime.
