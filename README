@@ -6,6 +6,9 @@ and other processes are currently drawing themselves. The heat map dissapates
 over time to encourage the processes not to try and go backwards. Unfortunately
 this allows them to get trapped in corners by other processes. Needs tuning.
 
+YouTube Project Playlist:
+https://www.youtube.com/watch?v=kP7Eq5dzZYA&list=PLYOxNewSFYceijv9lkypK5viNCzIk6PZY
+
 Features:
 - gen_server process per Websocket handler using simple_one_for_one
   supervisor child spec
