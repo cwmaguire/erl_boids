@@ -12,3 +12,6 @@ Features:
 - concurrent drawing processes
 - Server graphic object buffering
 - Process influence "heat map"
+
+This project was originally part of:
+https://github.com/cwmaguire/erl_ws
