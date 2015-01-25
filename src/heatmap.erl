@@ -112,9 +112,29 @@ render_cell({X, Y}, #cell{amt = Amt}, Objects) ->
                        {Red + ?FALLOFF, 0, 0, 1.0}),
     [Cell | Objects].
 
-heat_({X, Y}, Cells) ->
-    SurroundingPoints = [{X2, Y2} || X2 <- [X - 1, X, X + 1], Y2 <- [Y - 1, Y, Y + 1], {X2, Y2} /= {X, Y}],
-    [{{X2 - X, Y2 - Y}, Amt} || {X2, Y2} <- SurroundingPoints, {ok, Amt} <- [dict:find({X2, Y2}, Cells)]].
+heat_({X, Y} = Point, Cells) ->
+    InnerSquare = square({X - 1, Y - 1, X + 1, Y + 1}),
+    OuterSquare = square({X - 2, Y - 2, X + 2, Y + 2}),
+    InnerCells = square_cells(InnerSquare, Cells),
+    OuterCells = square_cells(OuterSquare, Cells),
+    Multiples1 = multiples(Point, InnerCells),
+    Multiples2 = multiples(Point, OuterCells),
+    Multiples1 ++ Multiples2.
+
+square_cells(Square, Cells) ->
+    [{Point, Cell} || Point <- Square, {ok, Cell} <- [dict:find(Point, Cells)]].
+
+multiples(CenterPoint, Cells) ->
+    [{multiple(CenterPoint, Point), Cell#cell.amt} || {Point, Cell} <- Cells].
+
+multiple({X1, Y1}, {X2, Y2}) ->
+    {multiple(X1, X2), multiple(Y1, Y2)};
+multiple(A, A) ->
+    0;
+multiple(A, B) when A < B ->
+    1;
+multiple(_, _) ->
+    -1.
 
 dissipate(Cells) ->
     dict:filter(fun has_amount/2, dict:map(fun dissipate_cell/2, Cells)).

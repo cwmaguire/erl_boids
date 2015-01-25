@@ -71,12 +71,12 @@ boid(State = #state{buffer_pid = BufferPid,
 
 next_point(OldX, OldY, HeatMapPid, State) ->
     MoveDist = 3,
-    Heat = heatmap:heat(HeatMapPid, point2grid({OldX, OldY}, ?BOID_SIZE)),
+    HeatSquares = heatmap:heat(HeatMapPid, point2grid({OldX, OldY}, ?BOID_SIZE)),
     ValidMoves = lists:filter(valid_move_filter(OldX, OldY,
                                                 MoveDist,
                                                 State#state.max_width,
                                                 State#state.max_height),
-                              Heat),
+                              lists:flatten(HeatSquares)),
     SortedHeat = lists:sort(fun({_, H1}, {_, H2}) -> H1 > H2 end, ValidMoves),
     {XMultiple, YMultiple} = xy_multiples(SortedHeat, 50),
     NewX = (OldX + (XMultiple * MoveDist)) rem State#state.max_width,
@@ -90,8 +90,6 @@ xy_multiples(XYHeat, MaxHeat) ->
     case [PointHeat || PointHeat = {_Point, Heat} <- XYHeat, Heat < MaxHeat] of
         [] ->
             element(1, hd(lists:reverse(XYHeat)));
-        [{Point, _Heat}] ->
-            Point;
         [{Point, _MaxValid} | _] ->
             Point
     end.
