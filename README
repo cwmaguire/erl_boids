@@ -9,6 +9,9 @@ this allows them to get trapped in corners by other processes. Needs tuning.
 YouTube Project Playlist:
 https://www.youtube.com/watch?v=kP7Eq5dzZYA&list=PLYOxNewSFYceijv9lkypK5viNCzIk6PZY
 
+Jan 25, 2015 YouTube Update:
+https://www.youtube.com/watch?v=4zdtaaAYtgg
+
 Features:
 - gen_server process per Websocket handler using simple_one_for_one
   supervisor child spec
