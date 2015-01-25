@@ -20,11 +20,13 @@
 -record(state, {buffer_pid :: pid(),
                 heatmap_pid :: pid(),
                 shape :: atom(),
+                size = 10 :: integer(),
                 max_height :: integer(),
                 max_width :: integer(),
                 rgba :: tuple(integer(), integer(), integer(), float()),
                 x :: integer(),
-                y :: integer()}).
+                y :: integer(),
+                move_dist = 3 :: integer()}).
 
 -define(BOID_SIZE, 10).
 
@@ -43,17 +45,18 @@ state(BufferPid, HeatMapPid, Shape, MaxHeight, MaxWidth, MaxRGB) ->
 
 start(State = #state{heatmap_pid = HeatMapPid, x = X, y = Y}) ->
     heatmap:insert(HeatMapPid, point2grid({X, Y}, ?BOID_SIZE)),
+    erlang:send_after(cycle_time(), self(), draw),
     boid(State).
 
 boid(State = #state{buffer_pid = BufferPid,
                     heatmap_pid = HeatMapPid,
                     shape = Shape,
+                    size = Size,
                     x = OldX,
                     y = OldY,
                     rgba = RGBA}) ->
 
-    BufferPid ! {self(), shape:shape(Shape, {OldX, OldY}, ?BOID_SIZE, RGBA)},
-    erlang:send_after(cycle_time(), self(), draw),
+    BufferPid ! {self(), shape:shape(Shape, {OldX, OldY}, Size, RGBA)},
     receive
         draw ->
             {NewX, NewY} = next_point(OldX, OldY, HeatMapPid, State),
@@ -61,10 +64,10 @@ boid(State = #state{buffer_pid = BufferPid,
             heatmap:move(HeatMapPid,
                          point2grid({OldX, OldY}, ?BOID_SIZE),
                          point2grid({NewX, NewY}, ?BOID_SIZE)),
+            erlang:send_after(cycle_time(), self(), draw),
             boid(State#state{x = NewX, y = NewY});
         {update, Key, Value} ->
-            io:format("Boid ~p Updating ~p to ~p~n", [self(), Key, Value]),
-            boid(State);
+            boid(update_state(Key, Value, State));
         _ ->
             ok
     after 5000 ->
@@ -73,7 +76,7 @@ boid(State = #state{buffer_pid = BufferPid,
     end.
 
 next_point(OldX, OldY, HeatMapPid, State) ->
-    MoveDist = 3,
+    MoveDist = State#state.move_dist,
     HeatSquares = heatmap:heat(HeatMapPid, point2grid({OldX, OldY}, ?BOID_SIZE)),
     ValidMoves = lists:filter(valid_move_filter(OldX, OldY,
                                                 MoveDist,
@@ -116,3 +119,12 @@ rand_color_elem(X) ->
 cycle_time() ->
     {ok, CycleTime} = application:get_env(erl_boids, cycle_time),
     CycleTime.
+
+update_state(boid_size, Value, State) ->
+    State#state{size = list_to_integer(binary_to_list(Value))};
+update_state(move_dist, Value, State) ->
+    State#state{move_dist = list_to_integer(binary_to_list(Value))};
+update_state(boid_shape, Value, State) ->
+    State#state{shape = list_to_atom(binary_to_list(Value))};
+update_state(_, _, State) ->
+    State.

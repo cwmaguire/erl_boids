@@ -11,5 +11,5 @@
     jsx
 	]},
 	{mod, {erl_boids_app, []}},
-	{env, [{cycle_time, 50}]}
+	{env, [{cycle_time, 200}]}
 ]}.

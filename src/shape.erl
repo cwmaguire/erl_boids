@@ -34,7 +34,7 @@ shape(ellipse, {X, Y}, Size, {R, G, B, A}, FillStyle, {GR, GG, GB, GA}) ->
      {r, R}, {g, G}, {b, B}, {a, A},
      {fill, FillStyle},
      {gr, GR}, {gg, GG}, {gb, GB}, {ga, GA}];
-shape(packman, {X, Y}, Size, {R, G, B, A}, FillStyle, {GR, GG, GB, GA}) ->
+shape(pacman, {X, Y}, Size, {R, G, B, A}, FillStyle, {GR, GG, GB, GA}) ->
     [{shape, ellipse},
      {x, X}, {y, Y},
      {rad, Size},

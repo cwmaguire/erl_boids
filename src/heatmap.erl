@@ -32,10 +32,10 @@
 
 -record(state, {cells :: dict(),
                 range = 4 :: integer(),
-                falloff = 2 :: integer()}).
+                falloff = 2 :: integer(),
+                dissipation = 1 :: integer}).
 
--record(cell, {amt :: integer(),
-               dissipation_cycles = 0 :: integer()}).
+-record(cell, {amt :: integer()}).
 
 %-define(RANGE, 4).
 %-define(FALLOFF, 2).
@@ -70,13 +70,12 @@ update(Pid, KV) ->
 %% Internal
 
 update_state(falloff, Value, State) ->
-    io:format("Heatmap ~p updating falloff to ~p~n", [self(), Value]),
     State#state{falloff = list_to_integer(binary_to_list(Value))};
 update_state(range, Value, State) ->
-    io:format("Heatmap ~p updating range to ~p~n", [self(), Value]),
     State#state{range = list_to_integer(binary_to_list(Value))};
+update_state(dissipation, Value, State) ->
+    State#state{dissipation = list_to_integer(binary_to_list(Value))};
 update_state(_Key, _, State) ->
-    io:format("Heatmap ~p ignoring change to ~p~n", [self(), _Key]),
     State.
 
 update(UpdateFunFun, {X, Y}, State = #state{falloff = Falloff, range = Range}) ->
@@ -99,20 +98,18 @@ square({X1, Y1, X2, Y2}) ->
     [{X, Y} || X <- Xs, Y <- Ys, X == X1 orelse X == X2 orelse Y == Y1 orelse Y == Y2].
 
 update_cell(Point, {UpdateFunFun, Amt, State}) ->
-    NewCells = dict:update(Point, UpdateFunFun(Amt, State), #cell{amt = Amt}, State#state.cells),
+    NewCells = dict:update(Point, UpdateFunFun(Amt), #cell{amt = Amt}, State#state.cells),
     {UpdateFunFun, Amt, State#state{cells = NewCells}}.
 
-add_fun(Add, _State) ->
+add_fun(Add) ->
     fun(Cell = #cell{amt = Amt}) ->
         Cell#cell{amt = Amt + Add}
     end.
 
-rem_fun(Remove, #state{falloff = Falloff}) ->
+rem_fun(Remove) ->
     fun(Cell = #cell{amt = Amt}) ->
         NewAmt = Amt - round((Remove / 2)),
-        NewDissipationCycles = round(NewAmt / Falloff) + 1,
-        Cell#cell{amt = NewAmt,
-                  dissipation_cycles = NewDissipationCycles}
+        Cell#cell{amt = NewAmt}
     end.
 
 render_cells(#state{cells = Cells, falloff = Falloff}) ->
@@ -156,29 +153,21 @@ multiple(A, B) when A < B ->
 multiple(_, _) ->
     -1.
 
-dissipate(State = #state{cells = Cells, falloff = Falloff}) ->
+dissipate(State = #state{cells = Cells, dissipation = Dissipation}) ->
     Fun = fun(_Key, Cell) ->
-              dissipate_cell(Cell, Falloff)
+              dissipate_cell(Cell, Dissipation)
           end,
     NewCells = dict:filter(fun has_amount/2, dict:map(Fun, Cells)),
     State#state{cells = NewCells}.
 
-dissipate_cell(Cell = #cell{amt = Amt,
-                            dissipation_cycles = DissipationCycles},
-               Falloff)
-    when is_integer(DissipationCycles), DissipationCycles > 0 ->
-
-    Dissipation = Falloff,
+dissipate_cell(Cell = #cell{amt = Amt}, Dissipation) ->
     NewAmt = case Amt - Dissipation of
                  X when X < 0 ->
                      0;
                  X ->
                      X
              end,
-    Cell#cell{amt = NewAmt,
-              dissipation_cycles = max(0, DissipationCycles - 1)};
-dissipate_cell(Cell, _Falloff) ->
-    Cell.
+    Cell#cell{amt = NewAmt}.
 
 has_amount(_Key, #cell{amt = Amt}) ->
     Amt > 0.
@@ -208,11 +197,11 @@ handle_cast(stop, State) ->
 handle_cast({update, {Key, Value}}, State) ->
     {noreply, update_state(Key, Value, State)};
 handle_cast({To}, State) ->
-    {noreply, update(fun add_fun/2, To, State)};
+    {noreply, update(fun add_fun/1, To, State)};
 handle_cast({From, To}, State) ->
-    NewState = update(fun add_fun/2,
+    NewState = update(fun add_fun/1,
                       To,
-                      update(fun rem_fun/2, From, State)),
+                      update(fun rem_fun/1, From, State)),
     {noreply, NewState};
 handle_cast(Msg, State) ->
     io:format("heatmap ~p received unrecognized message ~p~n", [self(), Msg]),

@@ -63,12 +63,13 @@ update(Pid, KV) ->
 
 %% internal functions
 
+update_(cycle_time, Value, _State) ->
+    application:set_env(erl_boids, cycle_time, list_to_integer(binary_to_list(Value)));
 update_(Key, Value, #state{boids = Pids,
                            buffer_pid = BufferPid,
                            heatmap_pid = HeatMapPid}) ->
     heatmap:update(HeatMapPid, {Key, Value}),
     [Pid ! {update, Key, Value} || Pid <- [BufferPid | Pids]].
-    %BufferPid ! {update, Key, Value}.
 
 %% gen_server logic
 
@@ -101,7 +102,7 @@ handle_cast(start, State = #state{running = false}) ->
              {rectangle, [30,90,200]},
              {rectangle, [30,90,200]},
              {rectangle, [30,90,200]},
-             {packman, [100,255,200]}],
+             {pacman, [100,255,200]}],
 
     Pids = [spawn(fun() -> boid:start(boid:state(BufferPid, HeatMapPid, Shape, MaxHeight, MaxWidth, RGB))
                   end) || {Shape, RGB} <- Specs],

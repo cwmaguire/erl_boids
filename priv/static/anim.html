@@ -65,12 +65,13 @@
 
   function update(){
     var obj = {"boid_size": elem_value("boid_size"),
-               "move_pixels": elem_value("move_pixels"),
+               "move_dist": elem_value("move_dist"),
                "falloff": elem_value("falloff"),
                "range": elem_value("range"),
                "num_boids": elem_value("num_boids"),
-               "boid_type": elem_value("boid_type"),
-               "dissipation_cycles": elem_value("dissipation_cycles")};
+               "boid_shape": elem_value("boid_shape"),
+               "dissipation": elem_value("dissipation"),
+               "cycle_time": elem_value("cycle_time")};
     websocket.send(JSON.stringify(obj));
   }
 
@@ -156,12 +157,13 @@
   <canvas id=heatmap height=300 width=400 style="border: 1px solid black;"></canvas>
   <form onsubmit="update(); return false;" action="">
     <br>Boid size: <input id=boid_size type=text value=10>
-    <br>Move pixels: <input id=move_pixels type=text value=3>
+    <br>Move dist: <input id=move_dist type=text value=3>
     <br>Falloff: <input id=falloff type=text value=4>
     <br>Range: <input id=range type=text value=4>
     <br>Num boids: <input id=num_boids type=text value=10>
-    <br>Boid type: <input id=boid_type type=text value="rectangle">
-    <br>Dissipation cycles: <input id=dissipation_cycles type=text value=2>
+    <br>Boid shape: <input id=boid_shape type=text value="rectangle">
+    <br>Dissipation: <input id=dissipation type=text value=2>
+    <br>Cycle Time: <input id=cycle_time type=text value=200>
     <br><input type=submit value="update">
   </form>
   <div id=results></div>
