@@ -62,7 +62,6 @@ start_gen_server(AnimateWebSocketPid) ->
     _ok_pid = gen_server:start_link(?MODULE, AnimateWebSocketPid, _Options = []).
 
 init(AnimateWebsocketPid) ->
-    io:format("animate gen_server init (~p, ~p) ~n", [self(), AnimateWebsocketPid]),
     AnimateWebsocketPid ! {animator, self()},
     {ok, #state{animate_websocket_pid = AnimateWebsocketPid}}.
 
@@ -71,7 +70,6 @@ handle_call(Request, From, State) ->
     {reply, ok, State}.
 
 handle_cast(start, State = #state{running = false}) ->
-    io:format("animate:handle_cast(start, ~p)~n", [State]),
     _ = random:seed(os:timestamp()),
     AnimateWebsocketPid = State#state.animate_websocket_pid,
     HeatMapPid = heatmap:start(),
@@ -94,7 +92,6 @@ handle_cast(start, State = #state{running = false}) ->
     Pids = [spawn(fun() -> boid:start(boid:state(BufferPid, HeatMapPid, Shape, MaxHeight, MaxWidth, RGB))
                   end) || {Shape, RGB} <- Specs],
 
-    io:format("animate started boids: ~p~n", [Pids]),
     {noreply, State#state{running = true,
                           boids=Pids,
                           buffer_pid = BufferPid,
@@ -103,7 +100,6 @@ handle_cast(stop, State = #state{running = true,
                                  boids = Boids,
                                  buffer_pid = BufferPid,
                                  heatmap_pid = HeatMapPid}) ->
-    io:format("animate:handle_cast(stop, ~p)~n", [State]),
     _ = [Boid ! stop || Boid <- Boids],
     BufferPid ! stop,
     heatmap:stop(HeatMapPid),
@@ -117,10 +113,15 @@ handle_cast(Request, State) ->
     {noreply, State}.
 
 handle_info(render_heatmap, State = #state{heatmap_pid = HeatmapPid}) ->
-    Heatmap = heatmap:render(HeatmapPid),
-    JSON = jsx:encode(Heatmap),
-    State#state.animate_websocket_pid ! JSON,
-    erlang:send_after(cycle_time(), self(), render_heatmap),
+    case is_process_alive(HeatmapPid) of
+        true ->
+            Heatmap = heatmap:render(HeatmapPid),
+            JSON = jsx:encode(Heatmap),
+            State#state.animate_websocket_pid ! JSON,
+            erlang:send_after(cycle_time(), self(), render_heatmap);
+        false ->
+            ok
+    end,
     {noreply, State};
 handle_info(Info, State) ->
     io:format("animate:handle_info(~p, ~p)~n", [Info, State]),

@@ -34,9 +34,8 @@
 -record(cell, {amt :: integer(),
                dissipation_cycles = 0 :: integer()}).
 
--define(RANGE, 8).
--define(FALLOFF, 4).
--define(DISSIPATION_CYCLES, 2).
+-define(RANGE, 4).
+-define(FALLOFF, 2).
 
 %% API
 
@@ -92,12 +91,11 @@ add_fun(Add) ->
     end.
 
 rem_fun(Remove) ->
-    fun(Cell = #cell{amt = Amt,
-                     dissipation_cycles = DissipationCycles}) ->
-        NewDissipationCycles = round(Amt / ?FALLOFF) + 1,
-        Cell#cell{amt = Amt - round((Remove / 2)),
-        %Cell#cell{amt = Amt - Remove,
-                  dissipation_cycles = DissipationCycles + NewDissipationCycles}
+    fun(Cell = #cell{amt = Amt}) ->
+        NewAmt = Amt - round((Remove / 2)),
+        NewDissipationCycles = round(NewAmt / ?FALLOFF) + 1,
+        Cell#cell{amt = NewAmt,
+                  dissipation_cycles = NewDissipationCycles}
     end.
 
 render_cells(Cells) ->
@@ -106,7 +104,12 @@ render_cells(Cells) ->
 
 render_cell({X, Y}, #cell{amt = Amt}, Objects) ->
     Red = max(0, 255 - Amt),
-    Cell = shape:shape(rectangle, {X * 10, Y * 10}, 10, {Red, 0, 0, 1.0}, gradient, {Red + ?FALLOFF, 0, 0, 1.0}),
+    Cell = shape:shape(rectangle,
+                       {X * 10, Y * 10},
+                       10,
+                       {Red, 0, 0, 1.0},
+                       gradient,
+                       {Red + ?FALLOFF, 0, 0, 1.0}),
     [Cell | Objects].
 
 heat_({X, Y}, Cells) ->

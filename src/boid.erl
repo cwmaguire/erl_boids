@@ -26,7 +26,7 @@
                 x :: integer(),
                 y :: integer()}).
 
--define(BOID_SIZE, 5).
+-define(BOID_SIZE, 10).
 
 state(BufferPid, HeatMapPid, Shape, MaxHeight, MaxWidth, MaxRGB) ->
     _ = random:seed(os:timestamp()),
@@ -62,8 +62,7 @@ boid(State = #state{buffer_pid = BufferPid,
                          point2grid({OldX, OldY}, ?BOID_SIZE),
                          point2grid({NewX, NewY}, ?BOID_SIZE)),
             boid(State#state{x = NewX, y = NewY});
-        Other ->
-            io:format("boid ~p received ~p~n", [self(), Other]),
+        _ ->
             ok
     after 5000 ->
         io:format("boid ~p didn't receive anything~n", [self()]),
@@ -88,15 +87,13 @@ xy_multiples([], _MaxHeat) ->
     Multipliers = [{X2, Y2} || X2 <- [-1, 0, 1], Y2 <- [-1, 0, 1], {X2, Y2} /= {0, 0}],
     lists:nth(random:uniform(8), Multipliers);
 xy_multiples(XYHeat, MaxHeat) ->
-    case [XYH || XYH = {_, H} <- XYHeat, H =< 60] of
+    case [PointHeat || PointHeat = {_Point, Heat} <- XYHeat, Heat < MaxHeat] of
         [] ->
             element(1, hd(lists:reverse(XYHeat)));
-        [{X, Y}, _] ->
-            {X, Y};
-        [{_, _MaxValid} | _] = ValidHeat ->
-            %BestHeat = lists:filter(fun({_, H}) -> H == MaxValid end, ValidHeat),
-            BestHeat = lists:filter(fun({_, H}) -> H < MaxHeat end, ValidHeat),
-            element(1,lists:nth(random:uniform(length(BestHeat)), BestHeat))
+        [{Point, _Heat}] ->
+            Point;
+        [{Point, _MaxValid} | _] ->
+            Point
     end.
 
 valid_move_filter(X1, Y1, MoveDist, MaxWidth, MaxHeight) ->
