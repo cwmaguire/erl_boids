@@ -20,7 +20,7 @@
 -->
 <html>
 <script language="JavaScript">
-  var exampleSocket;
+  var websocket;
   var results;
   var boids;
   var heatmap;
@@ -30,9 +30,9 @@
     results = document.getElementById("results");
     boids = document.getElementById("boids");
     heatmap = document.getElementById("heatmap");
-    exampleSocket = new WebSocket("ws://localhost:8080/animate");
-    exampleSocket.onopen = handle_ws_event;
-    exampleSocket.onmessage = handle_ws_message;
+    websocket = new WebSocket("ws://localhost:8080/animate");
+    websocket.onopen = handle_ws_event;
+    websocket.onmessage = handle_ws_message;
   }
 
   function handle_ws_event(event) {
@@ -54,13 +54,29 @@
   };
 
   function start(){
-    exampleSocket.send("height:" + boids.clientHeight);
-    exampleSocket.send("width:" + boids.clientWidth);
-    exampleSocket.send("start");
+    websocket.send("height:" + boids.clientHeight);
+    websocket.send("width:" + boids.clientWidth);
+    websocket.send("start");
   }
 
   function stop(){
-    exampleSocket.send("stop");
+    websocket.send("stop");
+  }
+
+  function update(){
+    var obj = {"boid_size": elem_value("boid_size"),
+               "move_pixels": elem_value("move_pixels"),
+               "falloff": elem_value("falloff"),
+               "range": elem_value("range"),
+               "num_boids": elem_value("num_boids"),
+               "boid_type": elem_value("boid_type"),
+               "dissipation_cycles": elem_value("dissipation_cycles")};
+    websocket.send(JSON.stringify(obj));
+  }
+
+  function elem_value(elem_id){
+    var elem = document.getElementById(elem_id);
+    return elem.value;
   }
 
   function log(str){
@@ -138,6 +154,16 @@
   <br>
   <canvas id=boids height=300 width=400 style="border: 1px solid black;"></canvas>
   <canvas id=heatmap height=300 width=400 style="border: 1px solid black;"></canvas>
+  <form onsubmit="update(); return false;" action="">
+    <br>Boid size: <input id=boid_size type=text value=10>
+    <br>Move pixels: <input id=move_pixels type=text value=3>
+    <br>Falloff: <input id=falloff type=text value=4>
+    <br>Range: <input id=range type=text value=4>
+    <br>Num boids: <input id=num_boids type=text value=10>
+    <br>Boid type: <input id=boid_type type=text value="rectangle">
+    <br>Dissipation cycles: <input id=dissipation_cycles type=text value=2>
+    <br><input type=submit value="update">
+  </form>
   <div id=results></div>
 </body>
 </html>

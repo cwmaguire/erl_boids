@@ -62,6 +62,9 @@ boid(State = #state{buffer_pid = BufferPid,
                          point2grid({OldX, OldY}, ?BOID_SIZE),
                          point2grid({NewX, NewY}, ?BOID_SIZE)),
             boid(State#state{x = NewX, y = NewY});
+        {update, Key, Value} ->
+            io:format("Boid ~p Updating ~p to ~p~n", [self(), Key, Value]),
+            boid(State);
         _ ->
             ok
     after 5000 ->

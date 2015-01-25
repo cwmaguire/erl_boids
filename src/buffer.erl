@@ -27,6 +27,9 @@ buffer(OutPid, Wait, Buffer) ->
             buffer(OutPid, Wait, Buffer);
         stop ->
             ok;
+        {update, Key, Value} ->
+            io:format("Buffer (~p) updating ~p to ~p~n", [self(), Key, Value]),
+            buffer(OutPid, Wait, Buffer);
         {Pid, Value} ->
             buffer(OutPid, Wait, dict:update(Pid, fun(_) -> Value end, Value, Buffer))
     end.

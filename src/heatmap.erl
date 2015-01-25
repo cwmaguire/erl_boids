@@ -21,6 +21,7 @@
 -export([heat/2]).
 -export([heatmap/1]).
 -export([render/1]).
+-export([update/2]).
 
 -export([init/1]).
 -export([handle_call/3]).
@@ -29,13 +30,15 @@
 -export([code_change/3]).
 -export([terminate/2]).
 
--record(state, {cells :: dict()}).
+-record(state, {cells :: dict(),
+                range = 4 :: integer(),
+                falloff = 2 :: integer()}).
 
 -record(cell, {amt :: integer(),
                dissipation_cycles = 0 :: integer()}).
 
--define(RANGE, 4).
--define(FALLOFF, 2).
+%-define(RANGE, 4).
+%-define(FALLOFF, 2).
 
 %% API
 
@@ -61,55 +64,72 @@ render(Pid) ->
 heatmap(Pid) ->
     gen_server:call(Pid, map).
 
+update(Pid, KV) ->
+    gen_server:cast(Pid, {update, KV}).
+
 %% Internal
 
-update(UpdateFunFun, {X, Y}, Cells) ->
-    Amt = ?RANGE * ?FALLOFF,
-    MaxMinXYs = [{X - N, Y - N, X + N, Y + N} || N <- lists:seq(0, ?RANGE - 1)],
-    {_, _, NewCells}  = lists:foldl(fun update_square/2,
-                                    {UpdateFunFun, Amt, Cells},
-                                    MaxMinXYs),
-    dict:filter(fun(_, Cell) -> Cell#cell.amt > 0 end, NewCells).
+update_state(falloff, Value, State) ->
+    io:format("Heatmap ~p updating falloff to ~p~n", [self(), Value]),
+    State#state{falloff = list_to_integer(binary_to_list(Value))};
+update_state(range, Value, State) ->
+    io:format("Heatmap ~p updating range to ~p~n", [self(), Value]),
+    State#state{range = list_to_integer(binary_to_list(Value))};
+update_state(_Key, _, State) ->
+    io:format("Heatmap ~p ignoring change to ~p~n", [self(), _Key]),
+    State.
 
-update_square(MaxMinXY, Acc = {UpdateFunFun, Amt, _Cells}) ->
+update(UpdateFunFun, {X, Y}, State = #state{falloff = Falloff, range = Range}) ->
+    Amt = Range * Falloff,
+    MaxMinXYs = [{X - N, Y - N, X + N, Y + N} || N <- lists:seq(0, Range - 1)],
+    {_, _, State2}  = lists:foldl(fun update_square/2,
+                                    {UpdateFunFun, Amt, State},
+                                    MaxMinXYs),
+    HotCells = dict:filter(fun(_, Cell) -> Cell#cell.amt > 0 end, State2#state.cells),
+    State2#state{cells = HotCells}.
+
+update_square(MaxMinXY, Acc = {UpdateFunFun, Amt, #state{falloff = Falloff}}) ->
     SquarePoints = square(MaxMinXY),
-    {_, _, NewCells} = lists:foldl(fun update_cell/2, Acc, SquarePoints),
-    {UpdateFunFun, Amt - ?FALLOFF, NewCells}.
+    {_, _, NewState} = lists:foldl(fun update_cell/2, Acc, SquarePoints),
+    {UpdateFunFun, Amt - Falloff, NewState}.
 
 square({X1, Y1, X2, Y2}) ->
     Xs = lists:seq(X1, X2),
     Ys = lists:seq(Y1, Y2),
     [{X, Y} || X <- Xs, Y <- Ys, X == X1 orelse X == X2 orelse Y == Y1 orelse Y == Y2].
 
-update_cell(Point, {UpdateFunFun, Amt, Cells}) ->
-    NewCells = dict:update(Point, UpdateFunFun(Amt), #cell{amt = Amt}, Cells),
-    {UpdateFunFun, Amt, NewCells}.
+update_cell(Point, {UpdateFunFun, Amt, State}) ->
+    NewCells = dict:update(Point, UpdateFunFun(Amt, State), #cell{amt = Amt}, State#state.cells),
+    {UpdateFunFun, Amt, State#state{cells = NewCells}}.
 
-add_fun(Add) ->
+add_fun(Add, _State) ->
     fun(Cell = #cell{amt = Amt}) ->
         Cell#cell{amt = Amt + Add}
     end.
 
-rem_fun(Remove) ->
+rem_fun(Remove, #state{falloff = Falloff}) ->
     fun(Cell = #cell{amt = Amt}) ->
         NewAmt = Amt - round((Remove / 2)),
-        NewDissipationCycles = round(NewAmt / ?FALLOFF) + 1,
+        NewDissipationCycles = round(NewAmt / Falloff) + 1,
         Cell#cell{amt = NewAmt,
                   dissipation_cycles = NewDissipationCycles}
     end.
 
-render_cells(Cells) ->
-    RenderedCells = dict:fold(fun render_cell/3, [], Cells),
+render_cells(#state{cells = Cells, falloff = Falloff}) ->
+    Fun = fun(Key, Cell, Acc) ->
+              render_cell(Key, Cell, Falloff, Acc)
+          end,
+    RenderedCells = dict:fold(Fun, [], Cells),
     [{canvas, <<"heatmap">>}, {objs, RenderedCells}].
 
-render_cell({X, Y}, #cell{amt = Amt}, Objects) ->
+render_cell({X, Y}, #cell{amt = Amt}, Falloff, Objects) ->
     Red = max(0, 255 - Amt),
     Cell = shape:shape(rectangle,
                        {X * 10, Y * 10},
                        10,
                        {Red, 0, 0, 1.0},
                        gradient,
-                       {Red + ?FALLOFF, 0, 0, 1.0}),
+                       {Red + Falloff, 0, 0, 1.0}),
     [Cell | Objects].
 
 heat_({X, Y} = Point, Cells) ->
@@ -136,14 +156,19 @@ multiple(A, B) when A < B ->
 multiple(_, _) ->
     -1.
 
-dissipate(Cells) ->
-    dict:filter(fun has_amount/2, dict:map(fun dissipate_cell/2, Cells)).
+dissipate(State = #state{cells = Cells, falloff = Falloff}) ->
+    Fun = fun(_Key, Cell) ->
+              dissipate_cell(Cell, Falloff)
+          end,
+    NewCells = dict:filter(fun has_amount/2, dict:map(Fun, Cells)),
+    State#state{cells = NewCells}.
 
-dissipate_cell(_, Cell = #cell{amt = Amt,
-                               dissipation_cycles = DissipationCycles})
+dissipate_cell(Cell = #cell{amt = Amt,
+                            dissipation_cycles = DissipationCycles},
+               Falloff)
     when is_integer(DissipationCycles), DissipationCycles > 0 ->
 
-    Dissipation = ?FALLOFF,
+    Dissipation = Falloff,
     NewAmt = case Amt - Dissipation of
                  X when X < 0 ->
                      0;
@@ -152,7 +177,7 @@ dissipate_cell(_, Cell = #cell{amt = Amt,
              end,
     Cell#cell{amt = NewAmt,
               dissipation_cycles = max(0, DissipationCycles - 1)};
-dissipate_cell(_, Cell) ->
+dissipate_cell(Cell, _Falloff) ->
     Cell.
 
 has_amount(_Key, #cell{amt = Amt}) ->
@@ -172,24 +197,30 @@ handle_call({heat, {X, Y}}, _From, State = #state{cells = Cells}) ->
     {reply, heat_({X, Y}, Cells), State};
 handle_call(map, _From, State) ->
     {reply, State#state.cells, State};
-handle_call(render, _From, State = #state{cells = Cells}) ->
-    {reply, render_cells(Cells), State};
+handle_call(render, _From, State) ->
+    {reply, render_cells(State), State};
 handle_call(Request, From, State) ->
     io:format("heatmap:handle_call(~p, ~p, State)~n", [Request, From]),
     {reply, ok, State}.
 
 handle_cast(stop, State) ->
     {stop, normal, State};
+handle_cast({update, {Key, Value}}, State) ->
+    {noreply, update_state(Key, Value, State)};
 handle_cast({To}, State) ->
-    Cells = update(fun add_fun/1, To, State#state.cells),
-    {noreply, State#state{cells = Cells}};
-handle_cast({From, To}, State = #state{cells = Cells}) ->
-    NewCells = update(fun add_fun/1, To, update(fun rem_fun/1, From, Cells)),
-    {noreply, State#state{cells = NewCells}}.
+    {noreply, update(fun add_fun/2, To, State)};
+handle_cast({From, To}, State) ->
+    NewState = update(fun add_fun/2,
+                      To,
+                      update(fun rem_fun/2, From, State)),
+    {noreply, NewState};
+handle_cast(Msg, State) ->
+    io:format("heatmap ~p received unrecognized message ~p~n", [self(), Msg]),
+    {noreply, State}.
 
-handle_info(dissipate, State = #state{cells = Cells}) ->
+handle_info(dissipate, State) ->
     erlang:send_after(cycle_time(), self(), dissipate),
-    {noreply, State#state{cells = dissipate(Cells)}};
+    {noreply, dissipate(State)};
 handle_info(Info, State) ->
     io:format("heatmap:handle_info(~p, ~p)~n", [Info, State]),
     {noreply, State}.

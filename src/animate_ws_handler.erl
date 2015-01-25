@@ -36,6 +36,12 @@ parse(<<"width:", Width0/binary>>) ->
 parse(_) ->
     undefined.
 
+update({Key, Value}, Pid) ->
+    KeyAtom = list_to_atom(binary_to_list(Key)),
+    animate:update(Pid, {KeyAtom, Value});
+update(_, _) ->
+    ok.
+
 init(_, _Req, _Opts) ->
     {upgrade, protocol, cowboy_websocket}.
 
@@ -52,9 +58,12 @@ websocket_init(_Type, Req, _Opts) ->
     {ok, Req3, #state{}}.
 
 websocket_handle({text, StartStop}, Req, State) when StartStop == <<"start">>; StartStop == <<"stop">> ->
-    io:format("From Websocket: {text, ~p}~n", [StartStop]),
     animate:(list_to_atom(binary_to_list(StartStop)))(State#state.animator_pid),
     {reply, {text, ["Erlang received command: ", StartStop]}, Req, State};
+websocket_handle({text, <<${, _/binary>> = JSON}, Req, State = #state{animator_pid = AnimatorPid}) ->
+    Proplist = jsx:decode(JSON),
+    [update(KV, AnimatorPid) || KV <- Proplist],
+    {reply, {text, ["Erlang received update."]}, Req, State};
 websocket_handle({text, FrameContent}, Req, State) ->
     io:format("From Websocket: {text, ~p}~n", [FrameContent]),
     case parse(FrameContent) of

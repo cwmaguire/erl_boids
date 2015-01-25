@@ -21,7 +21,9 @@
 -export([send/2]).
 -export([height/2]).
 -export([width/2]).
+-export([update/2]).
 -export([start_gen_server/1]).
+
 -export([init/1]).
 -export([handle_call/3]).
 -export([handle_cast/2]).
@@ -55,6 +57,18 @@ height(Pid, Height) ->
 
 width(Pid, Width) ->
     gen_server:cast(Pid, {width, Width}).
+
+update(Pid, KV) ->
+    gen_server:cast(Pid, {update, KV}).
+
+%% internal functions
+
+update_(Key, Value, #state{boids = Pids,
+                           buffer_pid = BufferPid,
+                           heatmap_pid = HeatMapPid}) ->
+    heatmap:update(HeatMapPid, {Key, Value}),
+    [Pid ! {update, Key, Value} || Pid <- [BufferPid | Pids]].
+    %BufferPid ! {update, Key, Value}.
 
 %% gen_server logic
 
@@ -108,6 +122,12 @@ handle_cast({height, Height}, State) ->
     {noreply, State#state{height = Height}};
 handle_cast({width, Width}, State) ->
     {noreply, State#state{width = Width}};
+handle_cast({update, {Key, Value}}, State = #state{running = true}) ->
+    update_(Key, Value, State),
+    {noreply, State};
+handle_cast({update, {Key, Value}}, State) ->
+    io:format("Not running, so not updating ~p to ~p~n", [Key, Value]),
+    {noreply, State};
 handle_cast(Request, State) ->
     io:format("animate:handle_cast(~p, ~p)~n", [Request, State]),
     {noreply, State}.
